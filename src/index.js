@@ -4,21 +4,21 @@ import './index.css';
 
 function Square(props) {
   return (
-    <button className="square" onClick={props.onClick}> {props.value} </button>
+    <button style={props.styles} className="square" onClick={props.onClick}> {props.value} </button>
   )
 }
 
 class Board extends React.Component {
   renderSquare(i) {
-    return  <Square value={this.props.squares[i]} onClick={() => this.props.onClick(i)} />;
+    return  <Square style={this.props.winner} value={this.props.squares[i]} onClick={() => this.props.onClick(i)} />;
   }
 
   renderLine(i) {
     return (
       <div className="board-row">
-        <Square value={this.props.squares[i]}   onClick={() => this.props.onClick(i)}   />
-        <Square value={this.props.squares[i+1]} onClick={() => this.props.onClick(i+1)} />
-        <Square value={this.props.squares[i+2]} onClick={() => this.props.onClick(i+2)} />
+        <Square styles={this.props.styles[i]}   value={this.props.squares[i]}   onClick={() => this.props.onClick(i)}   />
+        <Square styles={this.props.styles[i+1]} value={this.props.squares[i+1]} onClick={() => this.props.onClick(i+1)} />
+        <Square styles={this.props.styles[i+2]} value={this.props.squares[i+2]} onClick={() => this.props.onClick(i+2)} />
       </div>
     );
   }
@@ -66,6 +66,7 @@ class Game extends React.Component {
     this.state = {
       history: [{
         squares: Array(9).fill(null),
+        styles: Array(9).fill({"backgroundColor":"white"})
       }],
       stepNumber: 0,
       xIsNext: true,
@@ -76,14 +77,19 @@ class Game extends React.Component {
     const history = this.state.history.slice(0, this.state.stepNumber + 1);
     const current = history[history.length - 1];
     const squares = current.squares.slice();
-    if(calculateWinner(squares) || squares[i]) {
-      // Nada a fazer..
-      return;
+    const styles  = current.styles.slice();
+    if(calculateWinner(squares,styles) || squares[i]) {
+      return;   // Ja temos um ganhador, entao nada a fazer..
     }
+    if(calculateDraw(squares)){
+      return;   // Deu empate, entao nada a fazer
+    }
+    //
     squares[i] = this.state.xIsNext ? 'X' : 'O';
     this.setState({
       history: history.concat([{
         squares: squares,
+        styles: styles
       }]),
       stepNumber: history.length,
       xIsNext: !this.state.xIsNext
@@ -100,7 +106,8 @@ class Game extends React.Component {
   render() {
     const history = this.state.history;
     const current = history[this.state.stepNumber];
-    const winner  = calculateWinner(current.squares);
+    const winner  = calculateWinner(current.squares,current.styles);
+    const isDraw  = calculateDraw(current.squares);
     const moves = history.map((step, move) => {
       const desc = move ?
         'Go to move #' + move :
@@ -116,12 +123,16 @@ class Game extends React.Component {
     if(winner) {
       status = "Winner " + winner;
     } else {
-      status = "Next player: " + (this.state.xIsNext ? 'X' : 'O' );
+      if(!isDraw) {
+        status = "Next player: " + (this.state.xIsNext ? 'X' : 'O' );
+      } else {
+        status = "It's a tie!!"
+      } 
     }
     return (
       <div className="game">
         <div className="game-board">
-          <Board squares={current.squares} onClick={(i) => this.handleClick(i)} />
+          <Board styles={current.styles} squares={current.squares} onClick={(i) => this.handleClick(i)} />
         </div>
         <div className="game-info">
           <div> { status } </div>
@@ -140,7 +151,8 @@ ReactDOM.render(
 );
 
 
-function calculateWinner(squares) {
+function calculateWinner(squares,styles) {
+  // Haverá um ganhador quando tivermos algumas dessas combinações
   const lines = [
     [0, 1, 2],
     [3, 4, 5],
@@ -154,8 +166,22 @@ function calculateWinner(squares) {
   for (let i = 0; i < lines.length; i++) {
     const [a, b, c] = lines[i];
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      console.log("A: "+a+"- B: "+b+" - C: "+c);
+      styles[a] = {"backgroundColor":"yellow"};
+      styles[b] = {"backgroundColor":"yellow"};
+      styles[c] = {"backgroundColor":"yellow"};
       return squares[a];
     }
   }
   return null;
+}
+
+function calculateDraw(squares) {
+  // Haverá um empate quando não houver mais cuadrados livres
+  for (let i = 0; i < squares.length; i++) {
+    if (!squares[i]) {
+      return false;
+    }
+  }
+  return true;
 }
